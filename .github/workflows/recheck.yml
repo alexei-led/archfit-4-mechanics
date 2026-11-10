@@ -1,0 +1,36 @@
+# Q1 candidate: after a policy change lands on master, re-run the measure run of every open
+# pull request, with no action by its author.
+name: recheck
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .archfit.yaml
+permissions:
+  actions: write
+  pull-requests: read
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run the measure run of each open pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh pr list --base master --state open --json number,headRefOid \
+            --jq '.[] | "\(.number) \(.headRefOid)"' |
+            while read -r pr sha; do
+              run=$(gh api "repos/$GH_REPO/actions/workflows/measure.yml/runs?head_sha=$sha&event=pull_request&per_page=1" \
+                --jq '.workflow_runs[0].id // empty')
+              if [ -z "$run" ]; then
+                echo "#$pr: no measure run for $sha"
+                continue
+              fi
+              if gh api -X POST "repos/$GH_REPO/actions/runs/$run/rerun"; then
+                echo "#$pr: re-run of run $run requested" | tee -a "$GITHUB_STEP_SUMMARY"
+              else
+                echo "::warning::#$pr: re-run of run $run refused"
+              fi
+            done

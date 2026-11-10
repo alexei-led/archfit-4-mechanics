@@ -1,0 +1,44 @@
+# Q1 probe: what a pull_request run, and a re-run of it, sees. It stands in for the archfit check:
+# it judges the pull request with the policy at the tip of the target branch, as the Action does.
+name: measure
+on:
+  pull_request:
+    branches:
+      - master
+permissions:
+  contents: read
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record what this run sees
+        env:
+          EVENT_BASE: ${{ github.event.pull_request.base.sha }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          tip=$(git rev-parse "origin/$BASE_REF")
+          policy_at() { git show "$1:.archfit.yaml" 2>/dev/null || echo '(none)'; }
+          {
+            echo "### measure, attempt $GITHUB_RUN_ATTEMPT"
+            echo '```'
+            echo "GITHUB_SHA=$GITHUB_SHA"
+            echo "GITHUB_REF=$GITHUB_REF"
+            echo "event base.sha=$EVENT_BASE"
+            echo "event head.sha=$EVENT_HEAD"
+            echo "checked out=$(git rev-parse HEAD)"
+            echo "merge parents=$(git rev-list --parents -n 1 HEAD | cut -d' ' -f2-)"
+            echo "origin/$BASE_REF tip=$tip"
+            echo "changed event base..tip: $(git diff --name-only "$EVENT_BASE" "$tip" | tr '\n' ' ')"
+            echo "policy at event base: $(policy_at "$EVENT_BASE")"
+            echo "policy at tip: $(policy_at "$tip")"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$(policy_at "$tip")" != "status: pass" ]; then
+            echo "::error::the policy at the tip of $BASE_REF says: $(policy_at "$tip")"
+            exit 1
+          fi
