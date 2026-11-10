@@ -1,0 +1,42 @@
+# Sets the check archfit/gate on a commit with GITHUB_TOKEN, so its source is GitHub Actions.
+# Q3 uses it while the App identity is not available; Q2 uses it as "another source".
+name: gate-state
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to set the check on
+        required: true
+      status:
+        description: queued, in_progress or completed
+        required: true
+        default: in_progress
+      conclusion:
+        description: Conclusion, only with completed
+        required: false
+        default: ""
+      title:
+        description: Output title
+        required: false
+        default: 'waiting, request #431'
+permissions:
+  checks: write
+jobs:
+  set:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the check run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ inputs.sha }}
+          STATUS: ${{ inputs.status }}
+          CONCLUSION: ${{ inputs.conclusion }}
+          TITLE: ${{ inputs.title }}
+        run: |
+          jq -n --arg sha "$SHA" --arg st "$STATUS" --arg c "$CONCLUSION" --arg t "$TITLE" \
+            '{name: "archfit/gate", head_sha: $sha, status: $st, output: {title: $t, summary: $t}}
+             + (if $c != "" then {conclusion: $c} else {} end)' |
+            gh api -X POST "repos/$GH_REPO/check-runs" --input - \
+              --jq '{id, name, status, conclusion, app: .app.slug, title: .output.title}' |
+            tee -a "$GITHUB_STEP_SUMMARY"
