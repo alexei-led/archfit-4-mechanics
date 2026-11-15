@@ -1,0 +1,17 @@
+name: Archfit
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  archfit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: alexei-led/archfit-action@70d7292097b9238f33ee3ca71e923e37592297f4 # v4.0.0
+        with:
+          endpoint: https://archfit-public-tpr33pdjtq-ew.a.run.app
+          audience: https://archfit-public-tpr33pdjtq-ew.a.run.app
