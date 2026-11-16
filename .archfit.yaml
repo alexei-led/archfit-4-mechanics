@@ -1,1 +1,12 @@
-status: pass
+# Rehearsal policy for the Archfit 4 mechanics repository.
+# The repository holds no source code: one module owns every file so the check
+# has a graph, and the real behaviour under test is the App flow itself.
+version: 3
+owners:
+  - alexei-led
+modules:
+  repo:
+    paths:
+      - "**"
+exclude:
+  - .archfit-cache/**
